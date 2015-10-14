@@ -6,19 +6,22 @@
     android:paddingBottom="@dimen/activity_vertical_margin" tools:context=".MainActivity"
     android:id="@+id/main_activity">
 
-    <Button
+    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Start"
-        android:id="@+id/start_accel"
-        android:layout_alignParentStart="true" />
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Sensor 1: Connecting"
+        android:id="@+id/textView_01"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="79dp" />
 
-    <Button
+    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Stop"
-        android:id="@+id/stop_accel"
-        android:layout_below="@+id/start_accel"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Sensor 2: Connecting"
+        android:id="@+id/textView_02"
+        android:layout_centerVertical="true"
         android:layout_alignParentStart="true" />
-
 </RelativeLayout>
