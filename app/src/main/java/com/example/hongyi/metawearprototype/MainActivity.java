@@ -51,23 +51,25 @@ import java.util.ArrayList;
  */
 public class MainActivity extends AppCompatActivity implements ServiceConnection{
 
-    private static final String LOG_TAG = "MetawearPrototype", ACCEL_DATA = "Data:Sensor:", LOG_ERR = "http_err";
-    private static final int ONGOING_NOTIFICATION_ID = 247;
-    private static final int REQUEST_ENABLE_BT = 1;
+    private static final String LOG_TAG = "MetawearPrototype",
+//            ACCEL_DATA = "Data:Sensor:",
+            LOG_ERR = "http_err";
+//    private static final int ONGOING_NOTIFICATION_ID = 247;
+//    private static final int REQUEST_ENABLE_BT = 1;
     private MetaWearBleService.LocalBinder ServiceBinder;
-    private final ArrayList<String> SENSOR_MAC = new ArrayList<String>();
+    private final ArrayList<String> SENSOR_MAC = new ArrayList<>();
     private final ArrayList<BoardObject> boards = new ArrayList<>();
 //    private final String SENSOR_MAC_1 = "D7:06:C0:09:F7:7F", SENSOR_MAC_2 = "E1:B1:1A:7D:8C:35";
-    private ArrayList<MetaWearBoard> mxBoard = new ArrayList<>();
+//    private ArrayList<MetaWearBoard> mxBoard = new ArrayList<>();
 //    private MetaWearBoard mxBoard_1, mxBoard_2;
-    private ArrayList<Accelerometer> accelModule = new ArrayList<>();
+//    private ArrayList<Accelerometer> accelModule = new ArrayList<>();
 //    private Accelerometer accelModule_1,accelModule_2;
-    private ArrayList<long[]> startTimestamp = new ArrayList<>();
-    private ArrayList<ArrayList<String>> dataCache = new ArrayList<>();
-    private float sampleFreq = 12.5f;
-    private int uploadCount = (int) (8 * sampleFreq);
-    private float sampleInterval = 1000 / sampleFreq;
-    private ArrayList<Integer> dataCount = new ArrayList<>();
+//    private ArrayList<long[]> startTimestamp = new ArrayList<>();
+//    private ArrayList<ArrayList<String>> dataCache = new ArrayList<>();
+//    private float sampleFreq = 12.5f;
+//    private int uploadCount = (int) (8 * sampleFreq);
+//    private float sampleInterval = 1000 / sampleFreq;
+//    private ArrayList<Integer> dataCount = new ArrayList<>();
 
     private void initParams() {
         SENSOR_MAC.add("D7:06:C0:09:F7:7F");
@@ -85,9 +87,13 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
     @Override
     public void onDestroy() {
         for (int i = 0; i < SENSOR_MAC.size(); i++) {
-            accelModule.get(i).stop();
-            accelModule.get(i).disableAxisSampling();
-            mxBoard.get(i).disconnect();
+//            accelModule.get(i).stop();
+//            accelModule.get(i).disableAxisSampling();
+//            mxBoard.get(i).disconnect();
+            boards.get(i).accel_module.stop();
+            boards.get(i).accel_module.disableAxisSampling();
+            boards.get(i).ActiveDisconnect = true;
+            boards.get(i).board.disconnect();
         }
 //        accelModule_1.stop();
 //        accelModule_2.stop();
@@ -106,12 +112,12 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
         return true;
     }
 
-    public void changeText(int num, final String text) {
+    public void changeText(String MAC, final String text) {
         TextView tv = null;
-        if (num == 0) {
+        if (MAC.equals(SENSOR_MAC.get(0))) {
             tv = (TextView) findViewById(R.id.textView_01);
-        } else if (num == 1) {
-            tv = (TextView) findViewById(R.id.textView_02);
+        } else if (MAC.equals(SENSOR_MAC.get(1))) {
+            tv = (TextView) findViewById(R.id.textView_11);
         }
         final TextView finalTv = tv;
         runOnUiThread(new Runnable() {
@@ -155,80 +161,81 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
 
         for (int i = 0; i < SENSOR_MAC.size(); i++){
             BluetoothDevice btDevice = btAdapter.getRemoteDevice(SENSOR_MAC.get(i));
-            mxBoard.add(ServiceBinder.getMetaWearBoard(btDevice));
-            dataCount.add(0);
-            final int finalI = i;
-            mxBoard.get(i).setConnectionStateHandler(new MetaWearBoard.ConnectionStateHandler() {
-                @Override
-                public void connected() {
-                    startTimestamp.add(new long[1]);
-//                Log.i(LOG_TAG, "Board_1 connected");
-                    changeText(finalI, "Sensor " + (finalI + 1) + ": Connected, Streaming Data");
-                    final String devicename = SENSOR_MAC.get(finalI).replace(":", "");
-                    try {
-                        accelModule.add(mxBoard.get(finalI).getModule(Accelerometer.class));
-                        dataCache.add(new ArrayList<String>());
-                        while (accelModule.size() == finalI) {
-                            Thread.sleep(500);
-                        }
-                        accelModule.get(finalI).setOutputDataRate(sampleFreq);
-                        accelModule.get(finalI).routeData().fromAxes().stream(ACCEL_DATA + (finalI+1)).commit()
-                                .onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
-                                    @Override
-                                    public void success(RouteManager result) {
-                                        result.subscribe(ACCEL_DATA + (finalI + 1), new RouteManager.MessageHandler() {
-                                            @Override
-                                            public void process(Message message) {
-                                                dataCount.set(finalI, dataCount.get(finalI) + 1);
-                                                long timestamp = startTimestamp.get(finalI)[0] + (long) (dataCount.get(finalI) * sampleInterval);
-                                                double timestamp_in_seconds = timestamp / 1000.0;
-                                                CartesianFloat result = message.getData(CartesianFloat.class);
-                                                float x = result.x();
-                                                int x_int = (int) (x * 1000);
-                                                float y = result.y();
-                                                int y_int = (int) (y * 1000);
-                                                float z = result.z();
-                                                int z_int = (int) (z * 1000);
-//                                           httpTransmission(pointTime, devicename, x, y, z);
-//                                           getDataAsync task = new getDataAsync();
-//                                           task.execute(Long.toString(pointTime),devicename, String.valueOf(x), String.valueOf(y), String.valueOf(z));
-                                                dataCache.get(finalI).add(String.format("%.3f", timestamp_in_seconds) + "," + String.valueOf(x_int) +
-                                                        "," + String.valueOf(y_int) + "," + String.valueOf(z_int));
-                                                Log.i(ACCEL_DATA + (finalI+1), String.valueOf(dataCount.get(finalI)));
-                                                if (dataCache.get(finalI).size() == uploadCount) {
-                                                    ArrayList<String> temp = (ArrayList<String>) dataCache.get(finalI).clone();
-                                                    dataCache.get(finalI).clear();
-                                                    startTimestamp.get(finalI)[0] = System.currentTimeMillis();
-                                                    dataCount.set(finalI, 0);
-                                                    String jsonstr = getJSON(devicename, temp);
-                                                    postDataAsync task = new postDataAsync();
-                                                    task.execute(jsonstr);
-                                                }
-                                            }
-                                        });
-                                    }
-                                });
-                    } catch (UnsupportedModuleException e) {
-                        Log.i(LOG_TAG, "Cannot find accel_module_1", e);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    accelModule.get(finalI).enableAxisSampling();
-                    startTimestamp.get(finalI)[0] = System.currentTimeMillis();
-                    dataCount.set(finalI, 0);
-                    accelModule.get(finalI).start();
-                }
-
-                @Override
-                public void disconnected() {
-                    super.disconnected();
-                }
-
-                @Override
-                public void failure(int status, Throwable error) {
-                    mxBoard.get(finalI).connect();
-                }
-            });
+            boards.add(new BoardObject(ServiceBinder.getMetaWearBoard(btDevice), SENSOR_MAC.get(i), 12.5f));
+//            mxBoard.add(ServiceBinder.getMetaWearBoard(btDevice));
+//            dataCount.add(0);
+//            final int finalI = i;
+//            mxBoard.get(i).setConnectionStateHandler(new MetaWearBoard.ConnectionStateHandler() {
+//                @Override
+//                public void connected() {
+//                    startTimestamp.add(new long[1]);
+////                Log.i(LOG_TAG, "Board_1 connected");
+//                    changeText(finalI, "Sensor " + (finalI + 1) + ": Connected, Streaming Data");
+//                    final String devicename = SENSOR_MAC.get(finalI).replace(":", "");
+//                    try {
+//                        accelModule.add(mxBoard.get(finalI).getModule(Accelerometer.class));
+//                        dataCache.add(new ArrayList<String>());
+//                        while (accelModule.size() == finalI) {
+//                            Thread.sleep(500);
+//                        }
+//                        accelModule.get(finalI).setOutputDataRate(sampleFreq);
+//                        accelModule.get(finalI).routeData().fromAxes().stream(ACCEL_DATA + (finalI+1)).commit()
+//                                .onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
+//                                    @Override
+//                                    public void success(RouteManager result) {
+//                                        result.subscribe(ACCEL_DATA + (finalI + 1), new RouteManager.MessageHandler() {
+//                                            @Override
+//                                            public void process(Message message) {
+//                                                dataCount.set(finalI, dataCount.get(finalI) + 1);
+//                                                long timestamp = startTimestamp.get(finalI)[0] + (long) (dataCount.get(finalI) * sampleInterval);
+//                                                double timestamp_in_seconds = timestamp / 1000.0;
+//                                                CartesianFloat result = message.getData(CartesianFloat.class);
+//                                                float x = result.x();
+//                                                int x_int = (int) (x * 1000);
+//                                                float y = result.y();
+//                                                int y_int = (int) (y * 1000);
+//                                                float z = result.z();
+//                                                int z_int = (int) (z * 1000);
+////                                           httpTransmission(pointTime, devicename, x, y, z);
+////                                           getDataAsync task = new getDataAsync();
+////                                           task.execute(Long.toString(pointTime),devicename, String.valueOf(x), String.valueOf(y), String.valueOf(z));
+//                                                dataCache.get(finalI).add(String.format("%.3f", timestamp_in_seconds) + "," + String.valueOf(x_int) +
+//                                                        "," + String.valueOf(y_int) + "," + String.valueOf(z_int));
+//                                                Log.i(ACCEL_DATA + (finalI+1), String.valueOf(dataCount.get(finalI)));
+//                                                if (dataCache.get(finalI).size() == uploadCount) {
+//                                                    ArrayList<String> temp = (ArrayList<String>) dataCache.get(finalI).clone();
+//                                                    dataCache.get(finalI).clear();
+//                                                    startTimestamp.get(finalI)[0] = System.currentTimeMillis();
+//                                                    dataCount.set(finalI, 0);
+//                                                    String jsonstr = getJSON(devicename, temp);
+//                                                    postDataAsync task = new postDataAsync();
+//                                                    task.execute(jsonstr);
+//                                                }
+//                                            }
+//                                        });
+//                                    }
+//                                });
+//                    } catch (UnsupportedModuleException e) {
+//                        Log.i(LOG_TAG, "Cannot find accel_module_1", e);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                    accelModule.get(finalI).enableAxisSampling();
+//                    startTimestamp.get(finalI)[0] = System.currentTimeMillis();
+//                    dataCount.set(finalI, 0);
+//                    accelModule.get(finalI).start();
+//                }
+//
+//                @Override
+//                public void disconnected() {
+//                    super.disconnected();
+//                }
+//
+//                @Override
+//                public void failure(int status, Throwable error) {
+//                    mxBoard.get(finalI).connect();
+//                }
+//            });
         }
 //        BluetoothDevice btDevice_1 = btAdapter.getRemoteDevice(SENSOR_MAC.get(0));
 //        BluetoothDevice btDevice_2 = btAdapter.getRemoteDevice(SENSOR_MAC.get(1));
@@ -370,7 +377,8 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
 //            }
 //        });
         for (int i = 0; i < SENSOR_MAC.size();i++){
-            mxBoard.get(i).connect();
+//            mxBoard.get(i).connect();
+            boards.get(i).board.connect();
         }
 //        mxBoard_1.connect();
 //        mxBoard_2.connect();
@@ -444,37 +452,39 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
     }
 
     public class BoardObject {
-        private final String CONNECTING = "Connecting",
-                CONNECTED = "Connected. Streaming Data",
-                DISCONNECTED = "Lost connection. Reconnecting",
+        private final String CONNECTED = "Connected.\nStreaming Data",
+                DISCONNECTED = "Lost connection.\nReconnecting",
                 LOG_TAG = "Board_Log";
         public MetaWearBoard board;
         public Accelerometer accel_module;
         public long[] startTimestamp;
         public ArrayList<String> dataCache;
         public int dataCount;
-        public String status;
         public String MAC_ADDRESS;
         private float sampleFreq;
         private int uploadCount;
         private float sampleInterval;
+        public boolean ActiveDisconnect = false;
+        private final String devicename;
 
         public BoardObject(MetaWearBoard mxBoard, String MAC, float freq) {
             this.board = mxBoard;
             this.MAC_ADDRESS = MAC;
-            final String SENSOR_DATA_LOG = "Data:Sensor" + MAC_ADDRESS;
             this.dataCount = 0;
             this.dataCache = new ArrayList<>();
             this.startTimestamp = new long[1];
             this.sampleFreq = freq;
             this.uploadCount = (int) (8 * sampleFreq);
             this.sampleInterval = 1000 / sampleFreq;
+            this.devicename = MAC_ADDRESS.replace(":", "");
+            final String SENSOR_DATA_LOG = "Data:Sensor:" + MAC_ADDRESS;
 
             this.board.setConnectionStateHandler(new MetaWearBoard.ConnectionStateHandler() {
                 @Override
                 public void connected() {
-                    final String devicename = MAC_ADDRESS.replace(":", "");
+                    changeText(MAC_ADDRESS, CONNECTED);
                     try {
+                        startTimestamp[0] = System.currentTimeMillis();
                         accel_module = board.getModule(Accelerometer.class);
                         accel_module.setOutputDataRate(sampleFreq);
                         accel_module.routeData().fromAxes().stream(SENSOR_DATA_LOG).commit()
@@ -524,7 +534,17 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
 
                 @Override
                 public void disconnected() {
-                    super.disconnected();
+                    ArrayList<String> temp = (ArrayList<String>) dataCache.clone();
+                    dataCache.clear();
+                    startTimestamp[0] = System.currentTimeMillis();
+                    dataCount = 0;
+                    String jsonstr = getJSON(devicename, temp);
+                    postDataAsync task = new postDataAsync();
+                    task.execute(jsonstr);
+                    if (!ActiveDisconnect) {
+                        board.connect();
+                        changeText(MAC_ADDRESS, DISCONNECTED);
+                    }
                 }
 
                 @Override

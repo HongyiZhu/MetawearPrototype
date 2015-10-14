@@ -10,8 +10,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="Sensor 1: Connecting"
-        android:id="@+id/textView_01"
+        android:text="Sensor 1:"
+        android:id="@+id/textView_00"
         android:layout_alignParentTop="true"
         android:layout_alignParentStart="true"
         android:layout_marginTop="79dp" />
@@ -20,8 +20,27 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="Sensor 2: Connecting"
-        android:id="@+id/textView_02"
-        android:layout_centerVertical="true"
-        android:layout_alignParentStart="true" />
+        android:text="Sensor 2:"
+        android:id="@+id/textView_10"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginBottom="168dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Connecting"
+        android:id="@+id/textView_01"
+        android:layout_alignTop="@+id/textView_00"
+        android:layout_toEndOf="@+id/textView_00" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Connecting"
+        android:id="@+id/textView_11"
+        android:layout_alignTop="@+id/textView_10"
+        android:layout_toEndOf="@+id/textView_10" />
 </RelativeLayout>
