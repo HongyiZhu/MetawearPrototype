@@ -1,12 +1,10 @@
 package com.example.hongyi.metawearprototype;
 
-import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.ConnectivityManager;
@@ -32,7 +30,6 @@ import com.mbientlab.metawear.module.Accelerometer;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.w3c.dom.Text;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -54,34 +51,50 @@ import java.util.ArrayList;
  */
 public class MainActivity extends AppCompatActivity implements ServiceConnection{
 
-    private static final String LOG_TAG = "MetawearPrototype", ACCEL_DATA_1 = "Accel_1 Data", ACCEL_DATA_2 = "Accel_2 Data", LOG_ERR = "http_err";
+    private static final String LOG_TAG = "MetawearPrototype", ACCEL_DATA = "Data:Sensor:", LOG_ERR = "http_err";
     private static final int ONGOING_NOTIFICATION_ID = 247;
     private static final int REQUEST_ENABLE_BT = 1;
     private MetaWearBleService.LocalBinder ServiceBinder;
-    private final String SENSOR_MAC_1 = "D7:06:C0:09:F7:7F", SENSOR_MAC_2 = "E1:B1:1A:7D:8C:35";
-    private MetaWearBoard mxBoard_1, mxBoard_2;
-    private Accelerometer accelModule_1,accelModule_2;
+    private final ArrayList<String> SENSOR_MAC = new ArrayList<String>();
+    private final ArrayList<BoardObject> boards = new ArrayList<>();
+//    private final String SENSOR_MAC_1 = "D7:06:C0:09:F7:7F", SENSOR_MAC_2 = "E1:B1:1A:7D:8C:35";
+    private ArrayList<MetaWearBoard> mxBoard = new ArrayList<>();
+//    private MetaWearBoard mxBoard_1, mxBoard_2;
+    private ArrayList<Accelerometer> accelModule = new ArrayList<>();
+//    private Accelerometer accelModule_1,accelModule_2;
+    private ArrayList<long[]> startTimestamp = new ArrayList<>();
+    private ArrayList<ArrayList<String>> dataCache = new ArrayList<>();
     private float sampleFreq = 12.5f;
     private int uploadCount = (int) (8 * sampleFreq);
     private float sampleInterval = 1000 / sampleFreq;
-    private int[] datacount = {0, 0};
+    private ArrayList<Integer> dataCount = new ArrayList<>();
+
+    private void initParams() {
+        SENSOR_MAC.add("D7:06:C0:09:F7:7F");
+        SENSOR_MAC.add("E1:B1:1A:7D:8C:35");
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         getApplicationContext().bindService(new Intent(this, MetaWearBleService.class), this, Context.BIND_AUTO_CREATE);
+        initParams();
     }
 
     @Override
     public void onDestroy() {
-        accelModule_1.stop();
-        accelModule_2.stop();
-        accelModule_1.disableAxisSampling();
-        accelModule_2.disableAxisSampling();
-        mxBoard_1.disconnect();
-        mxBoard_2.disconnect();
+        for (int i = 0; i < SENSOR_MAC.size(); i++) {
+            accelModule.get(i).stop();
+            accelModule.get(i).disableAxisSampling();
+            mxBoard.get(i).disconnect();
+        }
+//        accelModule_1.stop();
+//        accelModule_2.stop();
+//        accelModule_1.disableAxisSampling();
+//        accelModule_2.disableAxisSampling();
+//        mxBoard_1.disconnect();
+//        mxBoard_2.disconnect();
         super.onDestroy();
         getApplicationContext().unbindService(this);
     }
@@ -95,9 +108,9 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
 
     public void changeText(int num, final String text) {
         TextView tv = null;
-        if (num == 1) {
+        if (num == 0) {
             tv = (TextView) findViewById(R.id.textView_01);
-        } else if (num == 2) {
+        } else if (num == 1) {
             tv = (TextView) findViewById(R.id.textView_02);
         }
         final TextView finalTv = tv;
@@ -139,148 +152,228 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
                 e.printStackTrace();
             }
         }
-        BluetoothDevice btDevice_1 = btAdapter.getRemoteDevice(SENSOR_MAC_1);
-        BluetoothDevice btDevice_2 = btAdapter.getRemoteDevice(SENSOR_MAC_2);
 
-        mxBoard_1 = ServiceBinder.getMetaWearBoard(btDevice_1);
-        mxBoard_1.setConnectionStateHandler(new MetaWearBoard.ConnectionStateHandler() {
-            @Override
-            public void failure(int status, Throwable error) {
-                mxBoard_1.connect();
-            }
-
-            @Override
-            public void connected() {
-                final long[] startTimestamp1 = new long[1];
+        for (int i = 0; i < SENSOR_MAC.size(); i++){
+            BluetoothDevice btDevice = btAdapter.getRemoteDevice(SENSOR_MAC.get(i));
+            mxBoard.add(ServiceBinder.getMetaWearBoard(btDevice));
+            dataCount.add(0);
+            final int finalI = i;
+            mxBoard.get(i).setConnectionStateHandler(new MetaWearBoard.ConnectionStateHandler() {
+                @Override
+                public void connected() {
+                    startTimestamp.add(new long[1]);
 //                Log.i(LOG_TAG, "Board_1 connected");
-                changeText(1, "Sensor 1: Connected, Streaming Data");
-                final String devicename = SENSOR_MAC_1.replace(":", "");
-                try {
-                    accelModule_1 = mxBoard_1.getModule(Accelerometer.class);
-                    accelModule_1.setOutputDataRate(sampleFreq);
-                    final ArrayList<String> cache = new ArrayList<String>();
-
-                    accelModule_1.routeData().fromAxes().stream(ACCEL_DATA_1).commit()
-                            .onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
-                                @Override
-                                public void success(RouteManager result) {
-                                   result.subscribe(ACCEL_DATA_1, new RouteManager.MessageHandler() {
-                                       @Override
-                                       public void process(Message message) {
-                                           datacount[0] += 1;
-                                           long timestamp = startTimestamp1[0] + (long) (datacount[0] * sampleInterval);
-                                           double timestamp_in_seconds = timestamp / 1000.0;
-                                           CartesianFloat result = message.getData(CartesianFloat.class);
-                                           float x = result.x();
-                                           int x_int = (int) (x * 1000);
-                                           float y = result.y();
-                                           int y_int = (int) (y * 1000);
-                                           float z = result.z();
-                                           int z_int = (int) (z * 1000);
+                    changeText(finalI, "Sensor " + (finalI + 1) + ": Connected, Streaming Data");
+                    final String devicename = SENSOR_MAC.get(finalI).replace(":", "");
+                    try {
+                        accelModule.add(mxBoard.get(finalI).getModule(Accelerometer.class));
+                        dataCache.add(new ArrayList<String>());
+                        while (accelModule.size() == finalI) {
+                            Thread.sleep(500);
+                        }
+                        accelModule.get(finalI).setOutputDataRate(sampleFreq);
+                        accelModule.get(finalI).routeData().fromAxes().stream(ACCEL_DATA + (finalI+1)).commit()
+                                .onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
+                                    @Override
+                                    public void success(RouteManager result) {
+                                        result.subscribe(ACCEL_DATA + (finalI + 1), new RouteManager.MessageHandler() {
+                                            @Override
+                                            public void process(Message message) {
+                                                dataCount.set(finalI, dataCount.get(finalI) + 1);
+                                                long timestamp = startTimestamp.get(finalI)[0] + (long) (dataCount.get(finalI) * sampleInterval);
+                                                double timestamp_in_seconds = timestamp / 1000.0;
+                                                CartesianFloat result = message.getData(CartesianFloat.class);
+                                                float x = result.x();
+                                                int x_int = (int) (x * 1000);
+                                                float y = result.y();
+                                                int y_int = (int) (y * 1000);
+                                                float z = result.z();
+                                                int z_int = (int) (z * 1000);
 //                                           httpTransmission(pointTime, devicename, x, y, z);
 //                                           getDataAsync task = new getDataAsync();
 //                                           task.execute(Long.toString(pointTime),devicename, String.valueOf(x), String.valueOf(y), String.valueOf(z));
-                                           cache.add(String.format("%.3f", timestamp_in_seconds) + "," + String.valueOf(x_int) +
-                                                   "," + String.valueOf(y_int) + "," + String.valueOf(z_int));
-                                           Log.i(ACCEL_DATA_1, String.valueOf(datacount[0]));
-                                           if (cache.size() == uploadCount) {
-                                               ArrayList<String> temp = (ArrayList<String>) cache.clone();
-                                               cache.clear();
-                                               startTimestamp1[0] = System.currentTimeMillis();
-                                               datacount[0] = 0;
-                                               String jsonstr = getJSON(devicename, temp);
-                                               postDataAsync task = new postDataAsync();
-                                               task.execute(jsonstr);
-                                           }
-                                       }
-                                   });
-                                }
-                            });
-                } catch (UnsupportedModuleException e) {
-                    Log.i(LOG_TAG, "Cannot find accel_module_1", e);
-                }
-                accelModule_1.enableAxisSampling();
-                startTimestamp1[0] = System.currentTimeMillis();
-                datacount[0] = 0;
-                accelModule_1.start();
-            }
-
-            @Override
-            public void disconnected() {
-                Log.i(LOG_TAG, "Board_1 disconnected");
-            }
-        });
-        mxBoard_2 = ServiceBinder.getMetaWearBoard(btDevice_2);
-        mxBoard_2.setConnectionStateHandler(new MetaWearBoard.ConnectionStateHandler() {
-            @Override
-            public void failure(int status, Throwable error) {
-                mxBoard_2.connect();
-            }
-
-            @Override
-            public void connected() {
-//                Log.i(LOG_TAG, "Board_2 connected");
-                changeText(2, "Sensor 2: Connected, Streaming Data");
-                final String devicename = SENSOR_MAC_2.replace(":", "");
-                final long[] startTimestamp2 = new long[1];
-                try {
-                    accelModule_2 = mxBoard_2.getModule(Accelerometer.class);
-                    accelModule_2.setOutputDataRate(sampleFreq);
-                    final ArrayList<String> cache = new ArrayList<String>();
-
-                    accelModule_2.routeData().fromAxes().stream(ACCEL_DATA_2).commit()
-                            .onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
-                                @Override
-                                public void success(RouteManager result) {
-                                    result.subscribe(ACCEL_DATA_2, new RouteManager.MessageHandler() {
-                                        @Override
-                                        public void process(Message message) {
-                                            datacount[1] += 1;
-                                            long timestamp = startTimestamp2[0] + (long) (datacount[1] * sampleInterval);
-                                            double timestamp_in_seconds = timestamp / 1000.0;
-                                            CartesianFloat result = message.getData(CartesianFloat.class);
-                                            float x = result.x();
-                                            int x_int = (int) (x * 1000);
-                                            float y = result.y();
-                                            int y_int = (int) (y * 1000);
-                                            float z = result.z();
-                                            int z_int = (int) (z * 1000);
-//                                            httpTransmission(pointTime, devicename, x, y, z);
-//                                            getDataAsync task = new getDataAsync();
-//                                            task.execute(Long.toString(pointTime),devicename, String.valueOf(x), String.valueOf(y), String.valueOf(z));
-                                            cache.add(String.format("%.3f", timestamp_in_seconds) + "," + String.valueOf(x_int) +
-                                                    "," + String.valueOf(y_int) + "," + String.valueOf(z_int));
-                                            if (cache.size() == uploadCount) {
-                                                ArrayList<String> temp = (ArrayList<String>) cache.clone();
-                                                cache.clear();
-                                                startTimestamp2[0] = System.currentTimeMillis();
-                                                datacount[1] = 0;
-                                                String jsonstr = getJSON(devicename, temp);
-                                                postDataAsync task = new postDataAsync();
-                                                task.execute(jsonstr);
+                                                dataCache.get(finalI).add(String.format("%.3f", timestamp_in_seconds) + "," + String.valueOf(x_int) +
+                                                        "," + String.valueOf(y_int) + "," + String.valueOf(z_int));
+                                                Log.i(ACCEL_DATA + (finalI+1), String.valueOf(dataCount.get(finalI)));
+                                                if (dataCache.get(finalI).size() == uploadCount) {
+                                                    ArrayList<String> temp = (ArrayList<String>) dataCache.get(finalI).clone();
+                                                    dataCache.get(finalI).clear();
+                                                    startTimestamp.get(finalI)[0] = System.currentTimeMillis();
+                                                    dataCount.set(finalI, 0);
+                                                    String jsonstr = getJSON(devicename, temp);
+                                                    postDataAsync task = new postDataAsync();
+                                                    task.execute(jsonstr);
+                                                }
                                             }
-                                            Log.i(ACCEL_DATA_2, String.valueOf(datacount[1]));
-                                        }
-                                    });
-                                }
-                            });
-                } catch (UnsupportedModuleException e) {
-                    Log.i(LOG_TAG, "Cannot find accel_module_2", e);
+                                        });
+                                    }
+                                });
+                    } catch (UnsupportedModuleException e) {
+                        Log.i(LOG_TAG, "Cannot find accel_module_1", e);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    accelModule.get(finalI).enableAxisSampling();
+                    startTimestamp.get(finalI)[0] = System.currentTimeMillis();
+                    dataCount.set(finalI, 0);
+                    accelModule.get(finalI).start();
                 }
-                accelModule_2.enableAxisSampling();
-                startTimestamp2[0] = System.currentTimeMillis();
-                datacount[1] = 0;
-                accelModule_2.start();
-            }
 
-            @Override
-            public void disconnected() {
-                Log.i(LOG_TAG, "Board_2 disconnected");
-            }
-        });
+                @Override
+                public void disconnected() {
+                    super.disconnected();
+                }
 
-        mxBoard_1.connect();
-        mxBoard_2.connect();
+                @Override
+                public void failure(int status, Throwable error) {
+                    mxBoard.get(finalI).connect();
+                }
+            });
+        }
+//        BluetoothDevice btDevice_1 = btAdapter.getRemoteDevice(SENSOR_MAC.get(0));
+//        BluetoothDevice btDevice_2 = btAdapter.getRemoteDevice(SENSOR_MAC.get(1));
+//
+//        mxBoard_1 = ServiceBinder.getMetaWearBoard(btDevice_1);
+//        mxBoard_1.setConnectionStateHandler(new MetaWearBoard.ConnectionStateHandler() {
+//            @Override
+//            public void failure(int status, Throwable error) {
+//                mxBoard_1.connect();
+//            }
+//
+//            @Override
+//            public void connected() {
+//                final long[] startTimestamp1 = new long[1];
+////                Log.i(LOG_TAG, "Board_1 connected");
+//                changeText(1, "Sensor 1: Connected, Streaming Data");
+//                final String devicename = SENSOR_MAC.get(0).replace(":", "");
+//                try {
+//                    accelModule_1 = mxBoard_1.getModule(Accelerometer.class);
+//                    accelModule_1.setOutputDataRate(sampleFreq);
+//                    final ArrayList<String> cache = new ArrayList<String>();
+//
+//                    accelModule_1.routeData().fromAxes().stream(ACCEL_DATA_1).commit()
+//                            .onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
+//                                @Override
+//                                public void success(RouteManager result) {
+//                                   result.subscribe(ACCEL_DATA_1, new RouteManager.MessageHandler() {
+//                                       @Override
+//                                       public void process(Message message) {
+//                                           datacount[0] += 1;
+//                                           long timestamp = startTimestamp1[0] + (long) (datacount[0] * sampleInterval);
+//                                           double timestamp_in_seconds = timestamp / 1000.0;
+//                                           CartesianFloat result = message.getData(CartesianFloat.class);
+//                                           float x = result.x();
+//                                           int x_int = (int) (x * 1000);
+//                                           float y = result.y();
+//                                           int y_int = (int) (y * 1000);
+//                                           float z = result.z();
+//                                           int z_int = (int) (z * 1000);
+////                                           httpTransmission(pointTime, devicename, x, y, z);
+////                                           getDataAsync task = new getDataAsync();
+////                                           task.execute(Long.toString(pointTime),devicename, String.valueOf(x), String.valueOf(y), String.valueOf(z));
+//                                           cache.add(String.format("%.3f", timestamp_in_seconds) + "," + String.valueOf(x_int) +
+//                                                   "," + String.valueOf(y_int) + "," + String.valueOf(z_int));
+//                                           Log.i(ACCEL_DATA_1, String.valueOf(datacount[0]));
+//                                           if (cache.size() == uploadCount) {
+//                                               ArrayList<String> temp = (ArrayList<String>) cache.clone();
+//                                               cache.clear();
+//                                               startTimestamp1[0] = System.currentTimeMillis();
+//                                               datacount[0] = 0;
+//                                               String jsonstr = getJSON(devicename, temp);
+//                                               postDataAsync task = new postDataAsync();
+//                                               task.execute(jsonstr);
+//                                           }
+//                                       }
+//                                   });
+//                                }
+//                            });
+//                } catch (UnsupportedModuleException e) {
+//                    Log.i(LOG_TAG, "Cannot find accel_module_1", e);
+//                }
+//                accelModule_1.enableAxisSampling();
+//                startTimestamp1[0] = System.currentTimeMillis();
+//                datacount[0] = 0;
+//                accelModule_1.start();
+//            }
+//
+//            @Override
+//            public void disconnected() {
+//                Log.i(LOG_TAG, "Board_1 disconnected");
+//            }
+//        });
+//        mxBoard_2 = ServiceBinder.getMetaWearBoard(btDevice_2);
+//        mxBoard_2.setConnectionStateHandler(new MetaWearBoard.ConnectionStateHandler() {
+//            @Override
+//            public void failure(int status, Throwable error) {
+//                mxBoard_2.connect();
+//            }
+//
+//            @Override
+//            public void connected() {
+////                Log.i(LOG_TAG, "Board_2 connected");
+//                changeText(2, "Sensor 2: Connected, Streaming Data");
+//                final String devicename = SENSOR_MAC.get(1).replace(":", "");
+//                final long[] startTimestamp2 = new long[1];
+//                try {
+//                    accelModule_2 = mxBoard_2.getModule(Accelerometer.class);
+//                    accelModule_2.setOutputDataRate(sampleFreq);
+//                    final ArrayList<String> cache = new ArrayList<String>();
+//
+//                    accelModule_2.routeData().fromAxes().stream(ACCEL_DATA_2).commit()
+//                            .onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
+//                                @Override
+//                                public void success(RouteManager result) {
+//                                    result.subscribe(ACCEL_DATA_2, new RouteManager.MessageHandler() {
+//                                        @Override
+//                                        public void process(Message message) {
+//                                            datacount[1] += 1;
+//                                            long timestamp = startTimestamp2[0] + (long) (datacount[1] * sampleInterval);
+//                                            double timestamp_in_seconds = timestamp / 1000.0;
+//                                            CartesianFloat result = message.getData(CartesianFloat.class);
+//                                            float x = result.x();
+//                                            int x_int = (int) (x * 1000);
+//                                            float y = result.y();
+//                                            int y_int = (int) (y * 1000);
+//                                            float z = result.z();
+//                                            int z_int = (int) (z * 1000);
+////                                            httpTransmission(pointTime, devicename, x, y, z);
+////                                            getDataAsync task = new getDataAsync();
+////                                            task.execute(Long.toString(pointTime),devicename, String.valueOf(x), String.valueOf(y), String.valueOf(z));
+//                                            cache.add(String.format("%.3f", timestamp_in_seconds) + "," + String.valueOf(x_int) +
+//                                                    "," + String.valueOf(y_int) + "," + String.valueOf(z_int));
+//                                            if (cache.size() == uploadCount) {
+//                                                ArrayList<String> temp = (ArrayList<String>) cache.clone();
+//                                                cache.clear();
+//                                                startTimestamp2[0] = System.currentTimeMillis();
+//                                                datacount[1] = 0;
+//                                                String jsonstr = getJSON(devicename, temp);
+//                                                postDataAsync task = new postDataAsync();
+//                                                task.execute(jsonstr);
+//                                            }
+//                                            Log.i(ACCEL_DATA_2, String.valueOf(datacount[1]));
+//                                        }
+//                                    });
+//                                }
+//                            });
+//                } catch (UnsupportedModuleException e) {
+//                    Log.i(LOG_TAG, "Cannot find accel_module_2", e);
+//                }
+//                accelModule_2.enableAxisSampling();
+//                startTimestamp2[0] = System.currentTimeMillis();
+//                datacount[1] = 0;
+//                accelModule_2.start();
+//            }
+//
+//            @Override
+//            public void disconnected() {
+//                Log.i(LOG_TAG, "Board_2 disconnected");
+//            }
+//        });
+        for (int i = 0; i < SENSOR_MAC.size();i++){
+            mxBoard.get(i).connect();
+        }
+//        mxBoard_1.connect();
+//        mxBoard_2.connect();
     }
 
     @Override
@@ -309,7 +402,7 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
         return jsonstring.toString();
     }
 
-    private class postDataAsync extends AsyncTask<String, Boolean, String> {
+    public class postDataAsync extends AsyncTask<String, Boolean, String> {
         String urlbase = "https://app.silverlink247.com/sensor_logs";
         @Override
         protected String doInBackground(String... params) {
@@ -347,6 +440,99 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
                 Log.e(LOG_ERR, "No active connection");
             }
             return null;
+        }
+    }
+
+    public class BoardObject {
+        private final String CONNECTING = "Connecting",
+                CONNECTED = "Connected. Streaming Data",
+                DISCONNECTED = "Lost connection. Reconnecting",
+                LOG_TAG = "Board_Log";
+        public MetaWearBoard board;
+        public Accelerometer accel_module;
+        public long[] startTimestamp;
+        public ArrayList<String> dataCache;
+        public int dataCount;
+        public String status;
+        public String MAC_ADDRESS;
+        private float sampleFreq;
+        private int uploadCount;
+        private float sampleInterval;
+
+        public BoardObject(MetaWearBoard mxBoard, String MAC, float freq) {
+            this.board = mxBoard;
+            this.MAC_ADDRESS = MAC;
+            final String SENSOR_DATA_LOG = "Data:Sensor" + MAC_ADDRESS;
+            this.dataCount = 0;
+            this.dataCache = new ArrayList<>();
+            this.startTimestamp = new long[1];
+            this.sampleFreq = freq;
+            this.uploadCount = (int) (8 * sampleFreq);
+            this.sampleInterval = 1000 / sampleFreq;
+
+            this.board.setConnectionStateHandler(new MetaWearBoard.ConnectionStateHandler() {
+                @Override
+                public void connected() {
+                    final String devicename = MAC_ADDRESS.replace(":", "");
+                    try {
+                        accel_module = board.getModule(Accelerometer.class);
+                        accel_module.setOutputDataRate(sampleFreq);
+                        accel_module.routeData().fromAxes().stream(SENSOR_DATA_LOG).commit()
+                                .onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
+                                    @Override
+                                    public void success(RouteManager result) {
+                                        result.subscribe(SENSOR_DATA_LOG, new RouteManager.MessageHandler() {
+                                            @Override
+                                            public void process(Message message) {
+                                                dataCount += 1;
+                                                long timestamp = startTimestamp[0] + (long) (dataCount * sampleInterval);
+                                                double timestamp_in_seconds = timestamp / 1000.0;
+                                                CartesianFloat result = message.getData(CartesianFloat.class);
+                                                float x = result.x();
+                                                int x_int = (int) (x * 1000);
+                                                float y = result.y();
+                                                int y_int = (int) (y * 1000);
+                                                float z = result.z();
+                                                int z_int = (int) (z * 1000);
+//                                           httpTransmission(pointTime, devicename, x, y, z);
+//                                           getDataAsync task = new getDataAsync();
+//                                           task.execute(Long.toString(pointTime),devicename, String.valueOf(x), String.valueOf(y), String.valueOf(z));
+                                                dataCache.add(String.format("%.3f", timestamp_in_seconds) + "," + String.valueOf(x_int) +
+                                                        "," + String.valueOf(y_int) + "," + String.valueOf(z_int));
+                                                Log.i(SENSOR_DATA_LOG, String.valueOf(dataCount));
+                                                if (dataCache.size() == uploadCount) {
+                                                    ArrayList<String> temp = (ArrayList<String>) dataCache.clone();
+                                                    dataCache.clear();
+                                                    startTimestamp[0] = System.currentTimeMillis();
+                                                    dataCount = 0;
+                                                    String jsonstr = getJSON(devicename, temp);
+                                                    postDataAsync task = new postDataAsync();
+                                                    task.execute(jsonstr);
+                                                }
+                                            }
+                                        });
+                                    }
+                                });
+                    } catch (UnsupportedModuleException e) {
+                        Log.i(LOG_TAG, "Cannot find sensor:" + MAC_ADDRESS, e);
+                    }
+                    accel_module.enableAxisSampling();
+                    startTimestamp[0] = System.currentTimeMillis();
+                    dataCount = 0;
+                    accel_module.start();
+                }
+
+                @Override
+                public void disconnected() {
+                    super.disconnected();
+                }
+
+                @Override
+                public void failure(int status, Throwable error) {
+                    board.connect();
+                }
+            });
+
         }
     }
 
