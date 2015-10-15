@@ -74,6 +74,8 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
     private void initParams() {
         SENSOR_MAC.add("D7:06:C0:09:F7:7F");
         SENSOR_MAC.add("E1:B1:1A:7D:8C:35");
+        SENSOR_MAC.add("F6:E0:22:68:49:AF");
+//        SENSOR_MAC.add("C7:1C:99:0F:9D:00");
     }
 
     @Override
@@ -112,18 +114,32 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
         return true;
     }
 
-    public void changeText(String MAC, final String text) {
+    public void changeText(final String MAC, final String text) {
         TextView tv = null;
-        if (MAC.equals(SENSOR_MAC.get(0))) {
+        TextView tv2 = null;
+        if (SENSOR_MAC.size() >= 1 && MAC.equals(SENSOR_MAC.get(0))) {
             tv = (TextView) findViewById(R.id.textView_01);
-        } else if (MAC.equals(SENSOR_MAC.get(1))) {
+            tv2 = (TextView) findViewById(R.id.textView_02);
+        } else if (SENSOR_MAC.size() >= 2 && MAC.equals(SENSOR_MAC.get(1))) {
             tv = (TextView) findViewById(R.id.textView_11);
+            tv2 = (TextView) findViewById(R.id.textView_12);
+        } else if (SENSOR_MAC.size() >= 3 && MAC.equals(SENSOR_MAC.get(2))) {
+            tv = (TextView) findViewById(R.id.textView_21);
+            tv2 = (TextView) findViewById(R.id.textView_22);
+        } else if (SENSOR_MAC.size() >= 4 && MAC.equals(SENSOR_MAC.get(3))) {
+            tv = (TextView) findViewById(R.id.textView_31);
+            tv2 = (TextView) findViewById(R.id.textView_32);
+        } else if (SENSOR_MAC.size() >= 5 && MAC.equals(SENSOR_MAC.get(4))) {
+            tv = (TextView) findViewById(R.id.textView_41);
+            tv2 = (TextView) findViewById(R.id.textView_42);
         }
         final TextView finalTv = tv;
+        final TextView finalTv2 = tv2;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 finalTv.setText(text);
+                finalTv2.setText(MAC);
             }
         });
     }
@@ -378,6 +394,7 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
 //        });
         for (int i = 0; i < SENSOR_MAC.size();i++){
 //            mxBoard.get(i).connect();
+            changeText(boards.get(i).MAC_ADDRESS, boards.get(i).CONNECTING);
             boards.get(i).board.connect();
         }
 //        mxBoard_1.connect();
@@ -454,6 +471,7 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
     public class BoardObject {
         private final String CONNECTED = "Connected.\nStreaming Data",
                 DISCONNECTED = "Lost connection.\nReconnecting",
+                CONNECTING = "Connecting",
                 LOG_TAG = "Board_Log";
         public MetaWearBoard board;
         public Accelerometer accel_module;
@@ -549,6 +567,11 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
 
                 @Override
                 public void failure(int status, Throwable error) {
+                    try {
+                        Thread.sleep((long) (3000 * Math.random()));
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     board.connect();
                 }
             });

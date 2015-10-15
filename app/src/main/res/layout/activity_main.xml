@@ -12,9 +12,9 @@
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:text="Sensor 1:"
         android:id="@+id/textView_00"
+        android:layout_marginTop="55dp"
         android:layout_alignParentTop="true"
-        android:layout_alignParentStart="true"
-        android:layout_marginTop="79dp" />
+        android:layout_alignParentStart="true" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -22,15 +22,15 @@
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:text="Sensor 2:"
         android:id="@+id/textView_10"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentStart="true"
-        android:layout_marginBottom="168dp" />
+        android:layout_marginTop="43dp"
+        android:layout_below="@+id/textView_00"
+        android:layout_alignParentStart="true" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="Connecting"
+        android:text="Not Connected"
         android:id="@+id/textView_01"
         android:layout_alignTop="@+id/textView_00"
         android:layout_toEndOf="@+id/textView_00" />
@@ -39,8 +39,105 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="Connecting"
+        android:text="Not Connected"
         android:id="@+id/textView_11"
         android:layout_alignTop="@+id/textView_10"
         android:layout_toEndOf="@+id/textView_10" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Sensor 3:"
+        android:id="@+id/textView_20"
+        android:layout_below="@+id/textView_10"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="43dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Not Connected"
+        android:id="@+id/textView_21"
+        android:layout_alignTop="@+id/textView_20"
+        android:layout_toEndOf="@+id/textView_20" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Sensor 4:"
+        android:id="@+id/textView_30"
+        android:layout_below="@+id/textView_20"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="43dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Not Connected"
+        android:id="@+id/textView_31"
+        android:layout_alignTop="@+id/textView_30"
+        android:layout_toEndOf="@+id/textView_30" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Sensor 5:"
+        android:id="@+id/textView_40"
+        android:layout_marginTop="43dp"
+        android:layout_below="@+id/textView_30"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Not Connected"
+        android:id="@+id/textView_41"
+        android:layout_alignTop="@+id/textView_40"
+        android:layout_toEndOf="@+id/textView_40" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:id="@+id/textView_02"
+        android:layout_below="@+id/textView_00"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:id="@+id/textView_12"
+        android:layout_below="@+id/textView_10"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:id="@+id/textView_22"
+        android:layout_below="@+id/textView_20"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:id="@+id/textView_32"
+        android:layout_below="@+id/textView_30"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:id="@+id/textView_42"
+        android:layout_below="@+id/textView_40"
+        android:layout_alignParentStart="true" />
 </RelativeLayout>
