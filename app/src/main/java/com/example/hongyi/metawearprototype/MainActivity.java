@@ -471,6 +471,7 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
     public class BoardObject {
         private final String CONNECTED = "Connected.\nStreaming Data",
                 DISCONNECTED = "Lost connection.\nReconnecting",
+                FAILURE = "Connection error.\nReconnecting",
                 CONNECTING = "Connecting",
                 LOG_TAG = "Board_Log";
         public MetaWearBoard board;
@@ -485,7 +486,7 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
         public boolean ActiveDisconnect = false;
         private final String devicename;
 
-        public BoardObject(MetaWearBoard mxBoard, String MAC, float freq) {
+        public BoardObject(MetaWearBoard mxBoard, final String MAC, float freq) {
             this.board = mxBoard;
             this.MAC_ADDRESS = MAC;
             this.dataCount = 0;
@@ -552,25 +553,37 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
 
                 @Override
                 public void disconnected() {
-                    ArrayList<String> temp = (ArrayList<String>) dataCache.clone();
-                    dataCache.clear();
-                    startTimestamp[0] = System.currentTimeMillis();
-                    dataCount = 0;
-                    String jsonstr = getJSON(devicename, temp);
-                    postDataAsync task = new postDataAsync();
-                    task.execute(jsonstr);
+                    if (dataCache.size() != 0) {
+                        ArrayList<String> temp = (ArrayList<String>) dataCache.clone();
+                        dataCache.clear();
+                        startTimestamp[0] = System.currentTimeMillis();
+                        dataCount = 0;
+                        String jsonstr = getJSON(devicename, temp);
+                        postDataAsync task = new postDataAsync();
+                        task.execute(jsonstr);
+                    }
                     if (!ActiveDisconnect) {
-                        board.connect();
                         changeText(MAC_ADDRESS, DISCONNECTED);
+                        board.connect();
                     }
                 }
 
                 @Override
                 public void failure(int status, Throwable error) {
+                    changeText(MAC_ADDRESS, FAILURE);
                     try {
                         Thread.sleep((long) (3000 * Math.random()));
                     } catch (InterruptedException e) {
                         e.printStackTrace();
+                    }
+                    if (dataCache.size() != 0) {
+                        ArrayList<String> temp = (ArrayList<String>) dataCache.clone();
+                        dataCache.clear();
+                        startTimestamp[0] = System.currentTimeMillis();
+                        dataCount = 0;
+                        String jsonstr = getJSON(devicename, temp);
+                        postDataAsync task = new postDataAsync();
+                        task.execute(jsonstr);
                     }
                     board.connect();
                 }
